@@ -697,7 +697,7 @@ JDK 代理方式要求使用`接口+实现类`，其核心是代理类必须实�
 ```java 
 //接口
 public interface Service{
-    void func();
+    voiTd func();
 }
 
 //方法实现类
@@ -753,6 +753,15 @@ proxy.func();
 
 这样就可以使用代理类调用增强后的方法了。
 
+大致流程主要为：
+
+- 定义接口+实现类。
+
+- 定义代理类 handler 实现 InvocationHandler 接口，重写 invoke 方法，在其中调用被代理方法。
+
+- 通过`Proxy.newProxyInstance(Classloader loader, Class<?>[] interfaces, InvocationHandler handler)`方法创建代理对象，并调用被代理方法。
+
+
 #### proxy 代理对象
 
 代理对象 proxy 直接来源于`Proxy.newProxyInstance`，该方法的三个参数分别为：该类的类加载器、被该类实现的所有接口、某个实现了 InvocationHandler 的类的对象。
@@ -773,13 +782,32 @@ JDK 代理的本质是让 JVM 实时创建一个被代理类的`接口实现类`
 
 可以看到 handler 内部，`invoke`方法传入了三个参数：动态生成的代理类、被调用的方法、方法的参数。 
 
-
-
-
+`invoke`内部，则使用反射调用被代理方法：`Object result = method.invoke(target, args);`；其余的则是在方法执行前后用于增强功能，比如我们原本只是想要为方法增加日志输出。
 
 
 ### CGLIB 代理
 
+JDK 代理方式是由 Java 官方提供的，本质是实时创建被代理接口的增强实现类以实现代理；而`CGLIB`是由第三方实现的一个依赖包，其本质也并非实现接口，而是实时创建被代理类的子类，而由于 Java 的现在，子类无法调用父类的`final`和`private`方法，所以无法对这两种方法进行代理。另外，`final`类无法进行派生，所以也无法对 final 类中的方法进行代理。
+
+#### 使用方法
+
+假如有一个非 final 类中的非 private 与 final 需要被代理，定义如下：
+
+```java
+public class CLAZZ{
+    public void(){
+        //···
+    }
+}
+```
+
+首先需要在 pom 中添加依赖，然后定义一个拦截器，这个拦截器需要实现`MethodInterceptor`接口：
+
+```java
+public class Interceptor implements MethodInterceptor{
+    
+}
+```
 
 
 
