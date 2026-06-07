@@ -638,7 +638,147 @@ return
 
 ---
 
-## 动态代理
+## 代理
+
+### 什么是代理
+
+代理就是让中间人执行一件事，比方说有一个方法
+
+```java
+public class CLAZZ{
+    public void func(){
+        //...;
+    }
+}
+
+```
+
+我们给他找一个代理方法：
+
+```java
+public class Proxy{
+    public void proxyFunc(CLAZZ clazz){
+        clazz.func();
+    }
+}
+```
+
+在代理方法里面，执行了被代理方法，这就是最简单的代理关系。
+
+而我们在代理中最重要的目的就是：`增强`方法的功能，比如让`func()`每次执行都给个日志，但是不能修改方法本身，该怎么做？在代理里面实现：
+
+```java
+public void proxyFunc(CLAZZ clazz){
+    System.out.println("log: func() working...");
+    clazz.func();
+}
+```
+
+### 静态代理
+
+然而，如果有10000个方法都要经过代理，难道也要手写10000个代理方法吗？显然不可能。上面的方式就是`静态代理`。
+
+我们不禁思考：假如我要让不同方法输出同样格式的日志，难道就只能针对每个不同的方法，写各自对应但是极为相似的代理方法吗？
+
+### 动态代理
+
+`动态代理`可以解决这个问题，动态代理可以
+
+而目前常见的有两种动态代理方法：JDK 和 CGLIB 方式。
+
+### JDK 代理
+
+#### 使用方法
+
+JDK 代理方式要求使用`接口+实现类`，其核心是代理类必须实现`InvocationHandler`接口。
+
+我们假设要为不同的方法，打上相同的输出日志格式，假设有如下定义：
+
+```java 
+//接口
+public interface Service{
+    void func();
+}
+
+//方法实现类
+public class ServiceImpl implements Service{
+    void func(){
+        //······实现
+    }
+}
+```
+
+我们使用
+
+```java
+//代理类
+class Handler implements InvocationHandler {
+    // 持有被代理对象
+    private Object target; 
+
+    //构造
+    public Proxy(Object target) { 
+        this.target = target; 
+    }
+
+    /**
+     * Method method： 实际被代理的方法的对象
+     * Object[] args： 传入的method被代理方法的参数
+     */
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args)throws Throwable {
+        System.out.println("【前置增强】记录日志");
+        Object result = method.invoke(target, args); // 反射调用原方法
+        return result;
+    }
+}
+```
+
+主方法内调用：
+
+```java
+//被代理对象
+Service target = new ServiceImpl();
+//代理类，传入被代理对象
+InvocationHandler handler = new Handler(target);
+//构造代理对象
+Service proxy = (Service) Proxy.newProxyInstance(
+    target.getClass().getClassLoader()
+    , target.getClass().getInterfaces()
+    , handler
+);
+//调用
+proxy.func();
+```
+
+这样就可以使用代理类调用增强后的方法了。
+
+#### proxy 代理对象
+
+代理对象 proxy 直接来源于`Proxy.newProxyInstance`，该方法的三个参数分别为：该类的类加载器、被该类实现的所有接口、某个实现了 InvocationHandler 的类的对象。
+
+当使用 proxy 调用了被代理方法时，会将方法转发给实现了 InvocationHandler 的类的对象，即 handler， handler 随后调用 invoke 方法，实现`func()`方法的增强。
+
+> 为啥需要传入类加载器？
+
+JDK 代理的本质是让 JVM 实时创建一个被代理类的`接口实现类`，创建类后就必须加载到内存中，传入的类加载器就是起这个作用的。
+
+至于为什么传入的是被代理类的类加载器，是为了安全和惯例。
+
+> 为啥需要传入实现的接口？
+
+JDK 代理的本质是让 JVM 实时创建一个被代理类的`接口实现类`（这也是为什么必须要是接口+实现类的形式），这个创建类必须可以`完全取代被代理类`，所以被代理类实现的接口必须也被创建类实现，否则在语法上也说不通，传入实现的接口也是为了得知被代理类实现类哪些接口。
+
+#### invoke
+
+可以看到 handler 内部，`invoke`方法传入了三个参数：动态生成的代理类、被调用的方法、方法的参数。 
+
+
+
+
+
+
+### CGLIB 代理
 
 
 
@@ -646,8 +786,10 @@ return
 
 
 
+---
+
+## 注解
 
 
 
-
-
+---
