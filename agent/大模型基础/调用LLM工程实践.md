@@ -289,6 +289,59 @@ Function Calling / Tool Use|	面向动作|	适合让模型选择工具和参数|
 前面提到，模型有可能无法输出完整的结构化输出，若后端服务器一拿到增量片段就贸然转成对象，百分比报错，那么就需要后端先拼接成完整输出，进行校验无误后再转成对象；如果有误再转到兜底策略。
 
 
+### 调用 LLM 的注意事项
+
+> 必须要做好模型网关，分散业务不要直接调用供应商的 SDK，必须走模型网关；
+
+> 先扣额度再发请求；
+
+> 
+
+> 没有指标就没有稳定性，必须记录好每一次调用的详细信息。
+>一些需要记录的指标：
+>```
+>指标|	含义	|用途
+>---|---|---
+>TTFT|	首个 Token 返回时间|	判断排队、上下文过长、供应商抖动
+>E2E Latency|	端到端完成时间|	判断用户体验和 SLA
+>Input Tokens|输入 Token	|成本分析、上下文膨胀排查
+>Output Tokens|输出 Token|	成本分析、异常长回答排查
+>Retry Count	|重试次数|	识别供应商不稳定或策略过激
+>429 Rate	|限流比例|	判断配额和限流桶是否合理
+>Parse Failure Rate	|结构化解析失败率|	判断 Schema、Prompt、模型适配问题
+>Cancel Rate	|用户取消比例|	判断响应太慢或生成太长
+>Provider Error Rate	|供应商错误率|	路由、降级、熔断依据
+>```
+>
+>日志需要记录的字段：
+>
+>```
+>trace_id
+>tenant_id
+>user_id
+>conversation_id
+>message_id
+>attempt_id
+>model
+>provider
+>prompt_version
+>input_tokens
+>output_tokens
+>ttft_ms
+>latency_ms
+>retry_count
+>finish_reason
+>error_type
+>provider_request_id
+>```
+
+> 幂等性在同一个请求 id 里进行，绝对不要将同一个请求拆成两个 id。
+
+> 同步输出与流式输出分别处理，流式输出要记录号增量序列，利于补发重传。
+
+> 流式输出结构化输出，不能同步到客户端，必须全部接受完后在服务器进行校验。
+
+
 ### 面试题
 
 > 1.一次完整的 LLM 调用流程是什么？
@@ -336,8 +389,14 @@ Function Calling / Tool Use|	面向动作|	适合让模型选择工具和参数|
 
 > 7.JSON Mode 和 Structured Outputs 有什么区别
 
+JSON Mode 主要关注模型是否输出合法的 JSON 格式；
 
+JSON Schema 关注模型在能够输出合法 JSON 格式的基础上，能否符合业务需求，例如定义了一个 Java 类的 JSON Schema，模型是否能够完全按照该类的字段输出 JSON 文本。
+
+Structured Outputs 则在此之上，假设模型的输出是不可控的，即使是加上了 JSON Schema 也有可能输出不合法 JSON，所以 Structured Outputs 是供应商干的活，把模型的输出先行截获，然后强制转为合法 JSON ，这样同样能够保证输出的一定是 JSON，而且比纯 JSON Schema 约束还要强。
+
+而 Function Calling/Tool Use 这种同样也是格式化输出，但是是面对特定工具、方法的输入。比如 SQL 数据库，模型就必须输出合法的 sql 语句以控制数据库；比如 elasticsearch，模型就必须输入合法的 es 查询语句。
 
 > 8.流式结构化返回怎么处理
 
-后端要做好
+后端要做好校验，确保结构化输出完全合法。
